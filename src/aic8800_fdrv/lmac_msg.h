@@ -399,6 +399,9 @@ enum mm_msg_tag
     MM_SET_VENDOR_SWCONFIG_REQ,
     MM_SET_VENDOR_SWCONFIG_CFM,
 
+    MM_SET_TXPWR_LVL_ADJ_REQ,
+    MM_SET_TXPWR_LVL_ADJ_CFM,
+
     /// MAX number of messages
     MM_MAX,
 };
@@ -1226,6 +1229,7 @@ struct mm_set_agg_disable_req
 {
     u8_l disable;
     u8_l staidx;
+    u8_l disable_rx;
 };
 
 struct mm_set_coex_req
@@ -1336,6 +1340,13 @@ typedef struct
     s8_l pwrlvl_11ax_5g[12];
 } txpwr_lvl_conf_v3_t;
 
+typedef struct
+{
+    u8_l enable;
+    s8_l pwrlvl_adj_tbl_2g4[3];
+    s8_l pwrlvl_adj_tbl_5g[6];
+} txpwr_lvl_adj_conf_t;
+
 struct mm_set_txpwr_lvl_req
 {
   union {
@@ -1343,6 +1354,11 @@ struct mm_set_txpwr_lvl_req
     txpwr_lvl_conf_v2_t txpwr_lvl_v2;
     txpwr_lvl_conf_v3_t txpwr_lvl_v3;
   };
+};
+
+struct mm_set_txpwr_lvl_adj_req
+{
+    txpwr_lvl_adj_conf_t txpwr_lvl_adj;
 };
 
 typedef struct
@@ -1382,6 +1398,29 @@ typedef struct
     int8_t chan_122_140;
     int8_t chan_142_165;
 } txpwr_ofst_conf_t;
+
+/*
+ * pwrofst2x_tbl_2g4[3][3]:
+ * +---------------+----------+----------+----------+
+ * | RateTyp\ChGrp |  CH_1_4  |  CH_5_9  | CH_10_13 |
+ * +---------------+----------+----------+----------+
+ * | DSSS          |  [0][0]  |  [0][1]  |  [0][2]  |
+ * +---------------+----------+----------+----------+
+ * | OFDM_HIGHRATE |  [1][0]  |  [1][1]  |  [1][2]  |
+ * +---------------+----------+----------+----------+
+ * | OFDM_LOWRATE  |  [2][0]  |  [2][1]  |  [2][2]  |
+ * +---------------+----------+----------+----------+
+ * pwrofst2x_tbl_5g[3][6]:
+ * +---------------+--------------+--------------+----------------+----------------+----------------+----------------+
+ * | RateTyp\ChGrp | CH_42(36~50) | CH_58(51~64) | CH_106(98~114) | CH_122(115~130)| CH_138(131~146)| CH_155(147~166)|
+ * +---------------+--------------+--------------+----------------+----------------+----------------+----------------+
+ * | OFDM_LOWRATE  |    [0][0]    |    [0][1]    |     [0][2]     |     [0][3]     |     [0][4]     |     [0][5]     |
+ * +---------------+--------------+--------------+----------------+----------------+----------------+----------------+
+ * | OFDM_HIGHRATE |    [1][0]    |    [1][1]    |     [1][2]     |     [1][3]     |     [1][4]     |     [1][5]     |
+ * +---------------+--------------+--------------+----------------+----------------+----------------+----------------+
+ * | OFDM_MIDRATE  |    [2][0]    |    [2][1]    |     [2][2]     |     [2][3]     |     [2][4]     |     [2][5]     |
+ * +---------------+--------------+--------------+----------------+----------------+----------------+----------------+
+ */
 
 typedef struct
 {
@@ -1936,6 +1975,9 @@ enum vendor_hwconfig_tag{
 	CCA_THRESHOLD_REQ,
 	BWMODE_REQ,
 	CHIP_TEMP_GET_REQ,
+	AP_PS_LEVEL_SET_REQ,
+	CUSTOMIZED_FREQ_REQ,
+	WAKEUP_INFO_REQ,
 };
 
 enum {
@@ -1963,6 +2005,7 @@ struct mm_set_channel_access_req
 	u8_l  long_nav_en;
 	u8_l  cfe_en;
 	u8_l  rc_retry_cnt[3];
+	s8_l ccademod_th;
 };
 
 struct mm_set_mac_timescale_req
@@ -2012,6 +2055,13 @@ struct mm_set_vendor_hwconfig_cfm
     };
 };
 
+struct mm_set_customized_freq_req
+{
+	u32_l hwconfig_id;
+	u16_l raw_freq[4];
+	u16_l map_freq[4];
+};
+
 struct mm_set_txop_req
 {
 	u16_l txop_bk;
@@ -2045,6 +2095,9 @@ enum vendor_swconfig_tag
     BCN_CFG_REQ = 0,
     TEMP_COMP_SET_REQ,
     TEMP_COMP_GET_REQ,
+    EXT_FLAGS_SET_REQ,
+    EXT_FLAGS_GET_REQ,
+    EXT_FLAGS_MASK_SET_REQ,
 };
 
 struct mm_set_bcn_cfg_req
@@ -2081,12 +2134,40 @@ struct mm_get_temp_comp_cfm
     s8_l degree;
 };
 
+struct mm_set_ext_flags_req
+{
+    u32_l user_flags;
+};
+
+struct mm_set_ext_flags_cfm
+{
+    u32_l user_flags;
+};
+
+struct mm_get_ext_flags_cfm
+{
+    u32_l user_flags;
+};
+
+struct mm_mask_set_ext_flags_req
+{
+    u32_l user_flags_mask;
+    u32_l user_flags_val;
+};
+
+struct mm_mask_set_ext_flags_cfm
+{
+    u32_l user_flags;
+};
+
 struct mm_set_vendor_swconfig_req
 {
     u32_l swconfig_id;
     union {
         struct mm_set_bcn_cfg_req bcn_cfg_req;
         struct mm_set_temp_comp_req temp_comp_set_req;
+        struct mm_set_ext_flags_req ext_flags_set_req;
+        struct mm_mask_set_ext_flags_req ext_flags_mask_set_req;
     };
 };
 
@@ -2097,6 +2178,9 @@ struct mm_set_vendor_swconfig_cfm
         struct mm_set_bcn_cfg_cfm bcn_cfg_cfm;
         struct mm_set_temp_comp_cfm temp_comp_set_cfm;
         struct mm_get_temp_comp_cfm temp_comp_get_cfm;
+        struct mm_set_ext_flags_cfm ext_flags_set_cfm;
+        struct mm_get_ext_flags_cfm ext_flags_get_cfm;
+        struct mm_mask_set_ext_flags_cfm ext_flags_mask_set_cfm;
     };
 };
 
@@ -2854,6 +2938,20 @@ enum dbg_msg_tag
     DBG_GPIO_INIT_REQ,
     DBG_GPIO_INIT_CFM,
 
+    /// EF usrdata read request
+    DBG_EF_USRDATA_READ_REQ,
+    /// EF usrdata read confirm
+    DBG_EF_USRDATA_READ_CFM,
+    /// Memory block read request
+    DBG_MEM_BLOCK_READ_REQ,
+    /// Memory block read confirm
+    DBG_MEM_BLOCK_READ_CFM,
+
+    DBG_PWM_INIT_REQ,
+    DBG_PWM_INIT_CFM,
+    DBG_PWM_DEINIT_REQ,
+    DBG_PWM_DEINIT_CFM,
+
     /// Max number of Debug messages
     DBG_MAX,
 };
@@ -2987,9 +3085,9 @@ struct dbg_start_app_cfm
 enum {
     HOST_START_APP_AUTO = 1,
     HOST_START_APP_CUSTOM,
-#ifdef CONFIG_USB_BT
+//#ifdef CONFIG_USB_BT
     HOST_START_APP_REBOOT,
-#endif // (CONFIG_USB_BT)
+//#endif // (CONFIG_USB_BT)
 	HOST_START_APP_FNCALL = 4,
 	HOST_START_APP_DUMMY  = 5,
 };

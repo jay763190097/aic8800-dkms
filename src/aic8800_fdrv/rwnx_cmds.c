@@ -29,7 +29,7 @@
  */
 extern int aicwf_sdio_writeb(struct aic_sdio_dev *sdiodev, uint regaddr, u8 val);
 
-extern void rwnx_cmd_free(struct rwnx_cmd *cmd);
+void rwnx_cmd_free(struct rwnx_cmd *cmd);
 
 static void cmd_dump(const struct rwnx_cmd *cmd)
 {
@@ -297,7 +297,7 @@ static int cmd_mgr_llind(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
     return 0;
 }
 
-static void cmd_mgr_task_process(struct work_struct *work)
+void cmd_mgr_task_process(struct work_struct *work)
 {
     struct rwnx_cmd_mgr *cmd_mgr = container_of(work, struct rwnx_cmd_mgr, cmdWork);
     struct rwnx_cmd *cur, *next = NULL;

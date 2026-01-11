@@ -94,30 +94,7 @@ struct vendor_radiotap_hdr {
     u8 data[];
 };
 
-static void rwnx_skb_align_8bytes(struct sk_buff *skb){
-#ifdef CONFIG_ALIGN_8BYTES
-	int align __maybe_unused;
-	u8 *data;
-	size_t len = 0;
-
-	align = ((unsigned long)(skb->data + 14)) & 7;
-	if (align) {
-		if (WARN_ON(skb_headroom(skb) < 7)) {
-			dev_kfree_skb(skb);
-			skb = NULL;
-		} else {
-			//printk("AIDEN align1:%d rx_skb->data + 14:%p\r\n", align, skb->data + 14);
-			data = skb->data;
-			len = skb_headlen(skb);
-			skb->data -= align;
-			memmove(skb->data, data, len);
-			skb_set_tail_pointer(skb, len);
-			//printk("AIDEN align2:%d rx_skb->data + 14:%p\r\n", align, skb->data + 14);
-		}
-	}
-#endif
-}
-
+void rwnx_skb_align_8bytes(struct sk_buff *skb);
 
 
 /**
@@ -350,7 +327,7 @@ static void rwnx_rx_statistic(struct rwnx_hw *rwnx_hw, struct hw_rxhdr *hw_rxhdr
     cpu_raise_softirq(smp_processor_id(), NET_RX_SOFTIRQ)
 #endif /* LINUX_VERSION_CODE  */
 
-static void rwnx_rx_data_skb_resend(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
+void rwnx_rx_data_skb_resend(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 							 struct sk_buff *skb,  struct hw_rxhdr *rxhdr)
 {
 	struct sk_buff *rx_skb = skb;
@@ -455,12 +432,8 @@ static void rwnx_rx_data_skb_forward(struct rwnx_hw *rwnx_hw, struct rwnx_vif *r
 	* If the receive is not processed inside an ISR, the softirqd must be woken explicitly to service the NET_RX_SOFTIRQ.
 	* * In 2.6 kernels, this is handledby netif_rx_ni(), but in earlier kernels, we need to do it manually.
 	*/
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0) 
-	#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 18, 0) 
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 		netif_rx_ni(rx_skb);
-    #else
-		netif_rx(rx_skb);
-    #endif
 	#else
 		ulong flags;
 		netif_rx(rx_skb);
@@ -646,11 +619,7 @@ static bool rwnx_rx_data_skb(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
             * * In 2.6 kernels, this is handledby netif_rx_ni(), but in earlier kernels, we need to do it manually.
             */
             #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-            #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 18, 0)
                 netif_rx_ni(rx_skb);
-            #else
-                netif_rx(rx_skb);
-            #endif
             #else
                 ulong flags;
                 netif_rx(rx_skb);
@@ -1402,7 +1371,7 @@ struct reord_ctrl_info *reord_init_sta(struct aicwf_rx_priv* rx_priv, const u8 *
     return reord_info;
 }
 
-static int reord_flush_tid(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u8 tid)
+int reord_flush_tid(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u8 tid)
 {
     struct reord_ctrl_info *reord_info;
     struct reord_ctrl *preorder_ctrl;
@@ -1600,11 +1569,7 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
     * * In 2.6 kernels, this is handledby netif_rx_ni(), but in earlier kernels, we need to do it manually.
     */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 18, 0)
     netif_rx_ni(skb);
-#else
-    netif_rx(skb);
-#endif
 #else
     ulong flags;
     netif_rx(skb);
@@ -1620,7 +1585,7 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
     return 0;
 }
 
-static bool reord_rxframes_process(struct aicwf_rx_priv *rx_priv, struct reord_ctrl *preorder_ctrl, int bforced)
+bool reord_rxframes_process(struct aicwf_rx_priv *rx_priv, struct reord_ctrl *preorder_ctrl, int bforced)
 {
     struct list_head *phead, *plist;
     struct recv_msdu *prframe;
@@ -1656,7 +1621,7 @@ static bool reord_rxframes_process(struct aicwf_rx_priv *rx_priv, struct reord_c
     return bPktInBuf;
 }
 
-static void reord_rxframes_ind(struct aicwf_rx_priv *rx_priv,
+void reord_rxframes_ind(struct aicwf_rx_priv *rx_priv,
     struct reord_ctrl *preorder_ctrl)
 {
     struct list_head *phead, *plist;
@@ -1698,10 +1663,8 @@ void reord_timeout_handler (struct timer_list *t)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 	struct reord_ctrl *preorder_ctrl = (struct reord_ctrl *)data;
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(6,16,0)
-	struct reord_ctrl *preorder_ctrl = from_timer(preorder_ctrl, t, reord_timer);
 #else
-    struct reord_ctrl *preorder_ctrl = timer_container_of(preorder_ctrl, t, reord_timer);
+	struct reord_ctrl *preorder_ctrl = from_timer(preorder_ctrl, t, reord_timer);
 #endif
 
 	AICWFDBG(LOGTRACE, "%s Enter \r\n", __func__);
@@ -1742,7 +1705,7 @@ void reord_timeout_worker(struct work_struct *work)
     return ;
 }
 
-static int reord_process_unit(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u16 seq_num, u8 tid, u8 forward)
+int reord_process_unit(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u16 seq_num, u8 tid, u8 forward)
 {
     int ret=0;
     u8 *mac;
@@ -1832,13 +1795,13 @@ static int reord_process_unit(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb
 
     spin_lock_bh(&preorder_ctrl->reord_list_lock);
     if (reord_need_check(preorder_ctrl, pframe->seq_num)) {
-#if 0
+#if 1
 		if(pframe->rx_data[42] == 0x80){//this is rtp package
 			if(pframe->seq_num == preorder_ctrl->ind_sn){
-				printk("%s pframe->seq_num1:%d \r\n", __func__, pframe->seq_num);
+				//printk("%s pframe->seq_num1:%d \r\n", __func__, pframe->seq_num);
 	        	reord_single_frame_ind(rx_priv, pframe);//not need to reorder
 			}else{
-				printk("%s free pframe->seq_num:%d \r\n", __func__, pframe->seq_num);
+				//printk("%s free pframe->seq_num:%d \r\n", __func__, pframe->seq_num);
 			    if (pframe->pkt){
 			        dev_kfree_skb(pframe->pkt);
 			        pframe->pkt = NULL;
@@ -1945,7 +1908,7 @@ int reord_rxframe_enqueue(struct reord_ctrl *preorder_ctrl, struct recv_msdu *pr
 }
 #endif /* AICWF_RX_REORDER */
 
-static void remove_sec_hdr_mgmt_frame(struct hw_rxhdr *hw_rxhdr,struct sk_buff *skb)
+void remove_sec_hdr_mgmt_frame(struct hw_rxhdr *hw_rxhdr,struct sk_buff *skb)
 {
     u8 hdr_len = 24;
     u8 mgmt_header[24] = {0};
@@ -2110,11 +2073,7 @@ check_len_update:
         hdr = (struct ieee80211_hdr *)(skb->data + msdu_offset);
         rwnx_vif = rwnx_rx_get_vif(rwnx_hw, hw_rxhdr->flags_vif_idx);
         if (rwnx_vif) {
-            #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 17, 0))
-                cfg80211_rx_spurious_frame(rwnx_vif->ndev, hdr->addr2, GFP_ATOMIC);
-            #else  //link_id = -1
-                cfg80211_rx_spurious_frame(rwnx_vif->ndev, hdr->addr2, -1, GFP_ATOMIC);
-            #endif
+            cfg80211_rx_spurious_frame(rwnx_vif->ndev, hdr->addr2, GFP_ATOMIC);
         }
         goto end;
     }
@@ -2209,13 +2168,8 @@ check_len_update:
                 }
 
                 if (hw_rxhdr->flags_is_4addr && !rwnx_vif->use_4addr) {
-                    #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 17, 0))
-                        cfg80211_rx_unexpected_4addr_frame(rwnx_vif->ndev,
-                                                        sta->mac_addr, GFP_ATOMIC);
-                    #else //link_id = -1
-                        cfg80211_rx_unexpected_4addr_frame(rwnx_vif->ndev,
-                                                        sta->mac_addr, -1, GFP_ATOMIC);
-                    #endif
+                    cfg80211_rx_unexpected_4addr_frame(rwnx_vif->ndev,
+                                                       sta->mac_addr, GFP_ATOMIC);
                 }
             }
 

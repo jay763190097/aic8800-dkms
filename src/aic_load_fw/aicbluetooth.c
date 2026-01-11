@@ -180,11 +180,7 @@ char saved_sdk_ver[64];
 module_param_string(saved_sdk_ver, saved_sdk_ver,64, 0660);
 #endif
 
-void get_userconfig_xtal_cap(xtal_cap_conf_t *xtal_cap);
 
-void get_userconfig_txpwr_idx(txpwr_idx_conf_t *txpwr_idx);
-
-void get_userconfig_txpwr_ofst(txpwr_ofst_conf_t *txpwr_ofst);
 int aic_bt_platform_init(struct aic_usb_dev *usbdev)
 {
     rwnx_cmd_mgr_init(&usbdev->cmd_mgr);
@@ -910,7 +906,7 @@ void get_userconfig_txpwr_ofst(txpwr_ofst_conf_t *txpwr_ofst){
 
 EXPORT_SYMBOL(get_userconfig_txpwr_ofst);
 
-static void rwnx_plat_userconfig_set_value(char *command, char *value){	
+void rwnx_plat_userconfig_set_value(char *command, char *value){	
 	//TODO send command
 	printk("%s:command=%s value=%s \r\n", __func__, command, value);
 	if(!strcmp(command, "enable")){

@@ -12,7 +12,6 @@
 
 #include <linux/vmalloc.h>
 #include "rwnx_defs.h"
-#include "rwnx_msg_rx.h"
 #include "rwnx_prof.h"
 #include "rwnx_tx.h"
 #ifdef CONFIG_RWNX_BFMER
@@ -117,24 +116,27 @@ static inline int rwnx_rx_chan_switch_ind(struct rwnx_hw *rwnx_hw,
     } else {
         /* Retrieve the allocated RoC element */
         struct rwnx_roc_elem *roc_elem = rwnx_hw->roc_elem;
+        if (roc_elem) {
+            /* If mgmt_roc is true, remain on channel has been started by ourself */
+            if (!roc_elem->mgmt_roc) {
+                /* Inform the host that we have switch on the indicated off-channel */
+                #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0)
+                cfg80211_ready_on_channel(roc_elem->wdev->netdev, (u64)(rwnx_hw->roc_cookie_cnt),
+                                        roc_elem->chan, NL80211_CHAN_HT20, roc_elem->duration, GFP_ATOMIC);
+                #elif LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+                cfg80211_ready_on_channel(roc_elem->wdev, (u64)(rwnx_hw->roc_cookie_cnt),
+                                        roc_elem->chan, NL80211_CHAN_HT20, roc_elem->duration, GFP_ATOMIC);
+                #else
+                cfg80211_ready_on_channel(roc_elem->wdev, (u64)(rwnx_hw->roc_cookie_cnt),
+                                        roc_elem->chan, roc_elem->duration, GFP_ATOMIC);
+                #endif
+            }
 
-        /* If mgmt_roc is true, remain on channel has been started by ourself */
-        if (!roc_elem->mgmt_roc) {
-            /* Inform the host that we have switch on the indicated off-channel */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0)
-	    cfg80211_ready_on_channel(roc_elem->wdev->netdev, (u64)(rwnx_hw->roc_cookie_cnt),
-                                      roc_elem->chan, NL80211_CHAN_HT20, roc_elem->duration, GFP_ATOMIC);
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
-	    cfg80211_ready_on_channel(roc_elem->wdev, (u64)(rwnx_hw->roc_cookie_cnt),
-                                      roc_elem->chan, NL80211_CHAN_HT20, roc_elem->duration, GFP_ATOMIC);
-#else
-            cfg80211_ready_on_channel(roc_elem->wdev, (u64)(rwnx_hw->roc_cookie_cnt),
-                                      roc_elem->chan, roc_elem->duration, GFP_ATOMIC);
-#endif
+            /* Keep in mind that we have switched on the channel */
+            roc_elem->on_chan = true;
+        } else {
+            printk("roc_elem == null\n");
         }
-
-        /* Keep in mind that we have switched on the channel */
-        roc_elem->on_chan = true;
 
         // Enable traffic on OFF channel queue
         rwnx_txq_offchan_start(rwnx_hw);
@@ -604,7 +606,6 @@ static inline int rwnx_rx_scan_done_ind(struct rwnx_hw *rwnx_hw,
  * Messages from SCANU task
  **************************************************************************/
 #ifdef CONFIG_RWNX_FULLMAC
-extern uint8_t scanning;
 static inline int rwnx_rx_scanu_start_cfm(struct rwnx_hw *rwnx_hw,
                                           struct rwnx_cmd *cmd,
                                           struct ipc_e2a_msg *msg)
@@ -667,7 +668,7 @@ static inline int rwnx_rx_scanu_start_cfm(struct rwnx_hw *rwnx_hw,
 #endif//CONFIG_SCHED_SCAN
 
     rwnx_hw->scan_request = NULL;
-    scanning = 0;
+    rwnx_hw->scanning = 0;
 
     return 0;
 }
@@ -990,7 +991,7 @@ static inline int rwnx_rx_sm_connect_ind(struct rwnx_hw *rwnx_hw,
 
 	do {
 		bss = cfg80211_get_bss(wdev->wiphy, NULL, rwnx_vif->sta.bssid,
-#if LINUX_VERSION_CODE >= HIGH_KERNEL_VERSION
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2)
 							wdev->u.client.ssid, wdev->u.client.ssid_len,
 #else
 							wdev->ssid, wdev->ssid_len,
@@ -1012,28 +1013,26 @@ static inline int rwnx_rx_sm_connect_ind(struct rwnx_hw *rwnx_hw,
 
 			printk("%s bss ssid(%d):%s conn_bss_type:%d bss2 ssid(%d):%s conn_bss_type:%d\r\n", 
 				__func__, 
-				rwnx_vif->sta.ssid_len,
+				(int)rwnx_vif->sta.ssid_len,
 				rwnx_vif->sta.ssid,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
 				IEEE80211_BSS_TYPE_ESS,
 #else
-                WLAN_CAPABILITY_ESS,
+				WLAN_CAPABILITY_ESS,
 #endif
-#if LINUX_VERSION_CODE >= HIGH_KERNEL_VERSION
-				wdev->u.client.ssid_len,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2)
+				(int)wdev->u.client.ssid_len,
 				wdev->u.client.ssid, 
 #else
-				wdev->ssid_len,
+				(int)wdev->ssid_len,
 				wdev->ssid,
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0)
 				wdev->conn_bss_type
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+				IEEE80211_BSS_TYPE_ESS
 #else
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-                IEEE80211_BSS_TYPE_ESS
-#else
-                WLAN_CAPABILITY_ESS
-#endif
+				WLAN_CAPABILITY_ESS
 #endif
 				);
 
@@ -1041,7 +1040,7 @@ static inline int rwnx_rx_sm_connect_ind(struct rwnx_hw *rwnx_hw,
 				rwnx_vif->sta.bssid[0], rwnx_vif->sta.bssid[1], rwnx_vif->sta.bssid[2],
 				rwnx_vif->sta.bssid[3], rwnx_vif->sta.bssid[4], rwnx_vif->sta.bssid[5]);
 
-#if LINUX_VERSION_CODE >= HIGH_KERNEL_VERSION
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2)
 			wdev->u.client.ssid_len = (int)rwnx_vif->sta.ssid_len;
 			memcpy(wdev->u.client.ssid, rwnx_vif->sta.ssid, wdev->u.client.ssid_len);
 #else
@@ -1058,34 +1057,42 @@ static inline int rwnx_rx_sm_connect_ind(struct rwnx_hw *rwnx_hw,
 	} while (!bss);
 
     if (!ind->roamed) {//not roaming
+        if (rwnx_vif->is_conn == 0) {
         cfg80211_connect_result(dev, (const u8 *)ind->bssid.array, req_ie,
                                 ind->assoc_req_ie_len, rsp_ie,
                                 ind->assoc_rsp_ie_len, ind->status_code,
                                 GFP_ATOMIC);
-		atomic_set(&rwnx_vif->drv_conn_state, (int)RWNX_DRV_STATUS_CONNECTED);
-		AICWFDBG(LOGINFO, "%s cfg80211_connect_result pass \r\n", __func__);
+        }
+		if (ind->status_code == 0) {
+			atomic_set(&rwnx_vif->drv_conn_state, (int)RWNX_DRV_STATUS_CONNECTED);
+		} else {
+			atomic_set(&rwnx_vif->drv_conn_state, (int)RWNX_DRV_STATUS_DISCONNECTED);
+			rwnx_external_auth_disable(rwnx_vif);
+		}
+		AICWFDBG(LOGINFO, "%s cfg80211_connect_result pass, rwnx_vif->drv_conn_state:%d\r\n", __func__, (int)atomic_read(&rwnx_vif->drv_conn_state));
     }
     else {//roaming
         if(ind->status_code != 0){
             AICWFDBG(LOGINFO, "%s roaming fail to notify disconnect \r\n", __func__);
 			cfg80211_disconnected(dev, 0, NULL, 0,1, GFP_ATOMIC);
 			atomic_set(&rwnx_vif->drv_conn_state, (int)RWNX_DRV_STATUS_DISCONNECTED);
+			rwnx_external_auth_disable(rwnx_vif);
         }else{
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
             struct cfg80211_roam_info info;
             memset(&info, 0, sizeof(info));
-            if (rwnx_vif->ch_index < NX_CHAN_CTXT_CNT)
+            
 #if LINUX_VERSION_CODE < HIGH_KERNEL_VERSION
+			if (rwnx_vif->ch_index < NX_CHAN_CTXT_CNT)
     			info.channel = rwnx_hw->chanctx_table[rwnx_vif->ch_index].chan_def.chan;
+			info.bssid = (const u8 *)ind->bssid.array;
+
 #else
+			if (rwnx_vif->ch_index < NX_CHAN_CTXT_CNT)
     			info.links[0].channel = rwnx_hw->chanctx_table[rwnx_vif->ch_index].chan_def.chan;
+			info.links[0].bssid = (const u8 *)ind->bssid.array;;
 #endif//LINUX_VERSION_CODE < HIGH_KERNEL_VERSION    
 
-#if LINUX_VERSION_CODE < HIGH_KERNEL_VERSION
-            info.bssid = (const u8 *)ind->bssid.array;
-#else
-            info.links[0].bssid = (const u8 *)ind->bssid.array;;
-#endif//LINUX_VERSION_CODE < HIGH_KERNEL_VERSION
             info.req_ie = req_ie;
             info.req_ie_len = ind->assoc_req_ie_len;
             info.resp_ie = rsp_ie;
@@ -1210,11 +1217,11 @@ static inline int rwnx_rx_sm_disconnect_ind(struct rwnx_hw *rwnx_hw,
     rx_priv = rwnx_hw->usbdev->rx_priv;
 #endif
     if((rwnx_vif->wdev.iftype == NL80211_IFTYPE_STATION) || (rwnx_vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT)) {
-        macaddr = rwnx_vif->ndev->dev_addr;
+        macaddr = (u8*)rwnx_vif->ndev->dev_addr;
 		AICWFDBG(LOGINFO, "deinit:macaddr:%x,%x,%x,%x,%x,%x\r\n", macaddr[0],macaddr[1],macaddr[2], \
                                macaddr[3],macaddr[4],macaddr[5]);
         list_for_each_entry_safe(reord_info, tmp, &rx_priv->stas_reord_list, list) {
-            macaddr = rwnx_vif->ndev->dev_addr;
+            macaddr = (u8*)rwnx_vif->ndev->dev_addr;
 			AICWFDBG(LOGINFO, "reord_mac:%x,%x,%x,%x,%x,%x\r\n", reord_info->mac_addr[0],reord_info->mac_addr[1],reord_info->mac_addr[2], \
                                    reord_info->mac_addr[3],reord_info->mac_addr[4],reord_info->mac_addr[5]);
             if (!memcmp(reord_info->mac_addr, macaddr, 6)) {

@@ -12,7 +12,6 @@
 
 #include "rwnx_defs.h"
 #include "rwnx_dini.h"
-#include "rwnx_pci.h"
 #include "rwnx_v7.h"
 
 #define PCI_VENDOR_ID_DINIGROUP              0x17DF

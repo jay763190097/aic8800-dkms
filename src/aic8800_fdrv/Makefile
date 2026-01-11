@@ -1,8 +1,6 @@
-#EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS)
+EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS)
 EXTRA_CFLAGS += -Wno-implicit-fallthrough
-EXTRA_CFLAGS += -Wno-attribute-warning
-EXTRA_CFLAGS += -Wno-discarded-qualifiers
-EXTRA_CFLAGS += -Wno-frame-larger-than
+#EXTRA_CFLAGS += -Wno-unused-variable
 
 RWNX_VERS_NUM := 6.4.3.0
 
@@ -61,17 +59,17 @@ CONFIG_RWNX_BFMER ?= n
 
 CONFIG_SDIO_SUPPORT =n
 CONFIG_USB_SUPPORT =y
-CONFIG_RX_REORDER ?=y
+CONFIG_RX_REORDER =y
 CONFIG_ARP_OFFLOAD =y
-CONFIG_USE_5G ?= y
+CONFIG_USE_5G = y
 CONFIG_RADAR_OR_IR_DETECT =n
 CONFIG_DOWNLOAD_FW =n
 CONFIG_RFTEST=y
 CONFIG_USB_BT=y
 CONFIG_MAC_RANDOM_IF_NO_MAC_IN_EFUSE = y
-CONFIG_WPA3_FOR_OLD_KERNEL ?= n
-CONFIG_HE_FOR_OLD_KERNEL ?= n
-CONFIG_VHT_FOR_OLD_KERNEL ?= n
+CONFIG_WPA3_FOR_OLD_KERNEL = n
+CONFIG_HE_FOR_OLD_KERNEL = n
+CONFIG_VHT_FOR_OLD_KERNEL = n
 # CONFIG_COEX = n for BT_ONLY, CONFIG_COEX =y for combo and sw
 CONFIG_COEX = y
 CONFIG_ALIGN_8BYTES = y
@@ -83,6 +81,7 @@ CONFIG_RX_NETIF_RECV_SKB = y
 CONFIG_BR_SUPPORT = n
 CONFIG_USB_MSG_OUT_EP = y
 CONFIG_USB_MSG_IN_EP = y
+CONFIG_USB_RX_REASSEMBLE = n
 
 #DCDW support tx aggr, D80 support both
 CONFIG_USB_RX_AGGR = n
@@ -101,17 +100,26 @@ CONFIG_FWLOG_EN = n
 CONFIG_FOR_IPCAM = n
 CONFIG_5M10M = n
 # Need to set fw path in BOARD_KERNEL_CMDLINE
-CONFIG_USE_FW_REQUEST = n
+CONFIG_USE_FW_REQUEST ?= n
 CONFIG_USE_P2P0 = n
 CONFIG_ONE_TXQ = n
 CONFIG_PER_STA_FC = n
-CONFIG_PREALLOC_RX_SKB = n
-CONFIG_PREALLOC_TXQ = y
-CONFIG_USE_WIRELESS_EXT = n
+CONFIG_PREALLOC_RX_SKB ?= n
+CONFIG_PREALLOC_TXQ ?= y
+CONFIG_USE_WIRELESS_EXT = y
 CONFIG_DPD = y
 CONFIG_FORCE_DPD_CALIB = y
 CONFIG_GKI = n
 CONFIG_SCHED_SCAN = n
+CONFIG_TEMP_COMP = n
+CONFIG_POWER_LIMIT = n
+# CONFIG_MCC = n for sta and p2p concurrent in same channel.
+CONFIG_MCC = y
+CONFIG_LOAD_BT_PATCH_IN_FDRV = n
+
+ifneq ($(CONFIG_WIRELESS_EXT), y)
+CONFIG_USE_WIRELESS_EXT = n
+endif
 
 # Support of MU-MIMO transmission (need FW support)
 ifeq ($(CONFIG_RWNX_BFMER), y)
@@ -131,7 +139,7 @@ CONFIG_RWNX_MON_DATA =n
 CONFIG_RWNX_MON_XMIT ?= n
 CONFIG_RWNX_MON_RXFILTER ?= n
 
-CONFIG_FILTER_TCP_ACK =n
+CONFIG_FILTER_TCP_ACK =y
 
 # extra DEBUG config
 CONFIG_RWNX_SW_PROFILING ?= n
@@ -162,6 +170,7 @@ $(MODULE_NAME)-y := \
 	regdb.o                \
 	md5.o                  \
 	aic_vendor.o           \
+        aic_priv_cmd.o         \
 	aicwf_compat_8800dc.o  \
 	aicwf_compat_8800d80.o
 
@@ -230,7 +239,8 @@ ccflags-$(CONFIG_RWNX_DBG) += -DCONFIG_RWNX_DBG
 ccflags-$(CONFIG_RWNX_SW_PROFILING) += -DCONFIG_RWNX_SW_PROFILING
 ccflags-$(CONFIG_RWNX_MUMIMO_TX) += -DCONFIG_RWNX_MUMIMO_TX
 ccflags-$(CONFIG_RFTEST) += -DCONFIG_RFTEST
-
+ccflags-$(CONFIG_MCC) += -DCONFIG_MCC
+ccflags-$(CONFIG_LOAD_BT_PATCH_IN_FDRV) += -DCONFIG_LOAD_BT_PATCH_IN_FDRV
 
 ifeq ($(CONFIG_SDIO_SUPPORT), y)
 ccflags-y += -DAICWF_SDIO_SUPPORT
@@ -276,6 +286,7 @@ ccflags-y += -DDEFAULT_COUNTRY_CODE=""\$(CONFIG_COUNTRY_CODE)"\"
 ccflags-$(CONFIG_RX_NETIF_RECV_SKB) += -DCONFIG_RX_NETIF_RECV_SKB
 ccflags-$(CONFIG_USB_MSG_OUT_EP) += -DCONFIG_USB_MSG_OUT_EP
 ccflags-$(CONFIG_USB_MSG_IN_EP) += -DCONFIG_USB_MSG_IN_EP
+ccflags-$(CONFIG_USB_RX_REASSEMBLE) += -DCONFIG_USB_RX_REASSEMBLE
 ccflags-$(CONFIG_USB_RX_AGGR)  += -DCONFIG_USB_RX_AGGR
 ccflags-$(CONFIG_USB_TX_AGGR) += -DCONFIG_USB_TX_AGGR
 ccflags-$(CONFIG_USB_NO_TRANS_DMA_MAP) += -DCONFIG_USB_NO_TRANS_DMA_MAP
@@ -288,7 +299,7 @@ ccflags-$(CONFIG_STA_SCAN_WHEN_P2P_WORKING) += -DCONFIG_STA_SCAN_WHEN_P2P_WORKIN
 ccflags-$(CONFIG_SUPPORT_REALTIME_CHANGE_MAC) += -DCONFIG_SUPPORT_REALTIME_CHANGE_MAC
 ccflags-$(CONFIG_SET_VENDOR_EXTENSION_IE) += -DCONFIG_SET_VENDOR_EXTENSION_IE
 ccflags-$(CONFIG_FWLOG_EN) += -DCONFIG_FWLOG_EN
-ccflags-$(CONFIG_FOR_IPCAM) += -DCONFIG_FOR_IPCAM
+ccflags-$(CONFIG_FOR_IPCAM) += -DCONFIG_FOR_IPCAM -DCONFIG_ONE_TXQ
 ccflags-$(CONFIG_5M10M) += -DCONFIG_5M10M
 ccflags-$(CONFIG_USE_FW_REQUEST) += -DCONFIG_USE_FW_REQUEST
 ccflags-$(CONFIG_USE_P2P0) += -DCONFIG_USE_P2P0
@@ -302,38 +313,21 @@ ccflags-$(CONFIG_FORCE_DPD_CALIB) += -DCONFIG_FORCE_DPD_CALIB -DCONFIG_DPD
 ccflags-$(CONFIG_GKI) += -DCONFIG_GKI
 ccflags-$(CONFIG_SCHED_SCAN) += -DCONFIG_SCHED_SCAN
 ccflags-$(CONFIG_FILTER_TCP_ACK) += -DCONFIG_FILTER_TCP_ACK
+ccflags-$(CONFIG_TEMP_COMP) += -DCONFIG_TEMP_COMP
+ccflags-$(CONFIG_POWER_LIMIT) += -DCONFIG_POWER_LIMIT
+MAKEFLAGS +=-j$(shell nproc)
 
 # Platform support list
 CONFIG_PLATFORM_ROCKCHIP ?= n
 CONFIG_PLATFORM_ALLWINNER ?= n
 CONFIG_PLATFORM_AMLOGIC ?= n
+CONFIG_PLATFORM_HI ?= n
 CONFIG_PLATFORM_UBUNTU ?= y
 
 ifeq ($(CONFIG_PLATFORM_ROCKCHIP), y)
-#KDIR ?= /home/yaya/E/Rockchip/3288/Android5/kernel/
-#ARCH ?= arm
-#CROSS_COMPILE ?= /home/yaya/D/Workspace/CyberQuantum/JinHaoYue/rk3288/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
-#KDIR ?= /home/yaya/E/Rockchip/3229/Android7/RK3229_ANDROID7.1_v1.01_20170914/rk3229_Android7.1_v1.01_xml0914/kernel
-#ARCH ?= arm
-#CROSS_COMPILE ?= /home/yaya/E/Rockchip/3229/Android7/RK3229_ANDROID7.1_v1.01_20170914/rk3229_Android7.1_v1.01_xml0914/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
-#KDIR  ?= /home/yaya/E/Rockchip/3229/Android9/rk3229_android9.0_box/kernel
-#ARCH ?= arm
-#CROSS_COMPILE ?= /home/yaya/E/Rockchip/3229/Android9/rk3229_android9.0_box/prebuilts/gcc/linux-x86/arm/gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
+ARCH := arm64
 KDIR ?= /home/yaya/E/Rockchip/3566/firefly/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/kernel
-ARCH ?= arm64
-CROSS_COMPILE ?= /home/yaya/E/Rockchip/3566/Android11/rk3566_rk3568_android11_oranth/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
-#ARCH ?= arm
-#CROSS_COMPILE ?=/home/yaya/D/Workspace/CyberQuantum/JinHaoYue/rk3288/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
-#KDIR ?=/home/yaya/D/Workspace/CyberQuantum/JinHaoYue/rk3288/kernel
-#KDIR := /home/yaya/E/Rockchip/3566/Android/kernel
-#ARCH ?= arm64
-#CROSS_COMPILE ?= /home/yaya/E/Rockchip/3566/Android/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
-#KDIR ?= /home/yaya/E/Rockchip/3566/Android11/rk3566_rk3568_android11_oranth/kernel
-#ARCH ?= arm64
-#CROSS_COMPILE ?= /home/yaya/E/Rockchip/3566/Android11/rk3566_rk3568_android11_oranth/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
-#KDIR ?= /home/yaya/D/samba1/aiden/SDK/Rockchip/3588/Android12/RK3588_Android12.0/kernel-5.10
-#ARCH ?= arm64
-#CROSS_COMPILE ?= /home/yaya/D/samba1/aiden/SDK/Rockchip/3588/Android12/RK3588_Android12.0/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
+CROSS_COMPILE := /home/yaya/E/Rockchip/3566/firefly/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
 ccflags-y += -DANDROID_PLATFORM
 ccflags-y += -DCONFIG_PLATFORM_ROCKCHIP
 endif
@@ -350,23 +344,32 @@ ccflags-y += -DANDROID_PLATFORM
 ARCH ?= arm
 CROSS_COMPILE ?= /home/yaya/D/Workspace/CyberQuantum/JinHaoYue/amls905x3/SDK/20191101-0tt-asop/android9.0/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-
 KDIR ?= /home/yaya/D/Workspace/CyberQuantum/JinHaoYue/amls905x3/SDK/20191101-0tt-asop/android9.0/out/target/product/u202/obj/KERNEL_OBJ/
+endif
 
+ifeq ($(CONFIG_PLATFORM_HI), y)
+ccflags-y += -DANDROID_PLATFORM
+ccflags-y += -DCONFIG_PLATFORM_HI
+ARCH ?= arm
+CROSS_COMPILE ?= /home/yaya/D/Workspace/CyberQuantum/JinHaoYue/amls905x3/SDK/20191101-0tt-asop/android9.0/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-
+KDIR ?= /home/yaya/D/Workspace/CyberQuantum/JinHaoYue/amls905x3/SDK/20191101-0tt-asop/android9.0/out/target/product/u202/obj/KERNEL_OBJ/
 endif
 
 ifeq ($(CONFIG_PLATFORM_UBUNTU), y)
-KVER := $(or $(KVER), $(kernelver), $(KERNELRELEASE), $(shell uname -r))
-KDIR ?= /lib/modules/$(KVER)/build
-PWD  ?= $(shell pwd)
+KDIR  ?= /lib/modules/$(shell uname -r)/build
+#KDIR ?= ~/D/Workspace/CyberQuantum/Linux/linux-4.15/
+PWD   ?= $(shell pwd)
+KVER ?= $(shell uname -r)
 MODDESTDIR ?= /lib/modules/$(KVER)/kernel/drivers/net/wireless/aic8800
-ARCH ?= $(shell uname -m | sed -e s/i.86/i386/ -e s/armv.l/arm/ -e s/aarch64/arm64/)
+SUBARCH = $(shell uname -m | sed -e s/i.86/i386/ -e s/armv.l/arm/ -e s/aarch64/arm64/)
+ARCH ?= $(SUBARCH)
 CROSS_COMPILE ?=
 endif
 
 
 all: modules
 modules:
-#	$(MAKE) -C $(KDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) LLVM=1 LLVM_IAS=1 modules
-	$(MAKE) -C $(KDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
+#	make -C $(KDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) LLVM=1 LLVM_IAS=1 modules
+	make -C $(KDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
 install:
 	mkdir -p $(MODDESTDIR)
 	install -p -m 644 $(MODULE_NAME).ko  $(MODDESTDIR)
@@ -377,5 +380,5 @@ uninstall:
 	/sbin/depmod -a ${KVER}
 
 clean:
-	rm -rf *.o *.ko *.o.* *.mod.* modules.* .modules.order.cmd Module.* .a* .o* .*.o.* *.mod .tmp* .cache.mk
+	rm -rf *.o *.ko *.o.* *.mod.* modules.* Module.* .a* .o* .*.o.* *.mod .tmp* .cache.mk .modules.order.cmd .Module.symvers.cmd
 

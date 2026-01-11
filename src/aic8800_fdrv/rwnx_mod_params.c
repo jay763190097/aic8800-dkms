@@ -265,7 +265,7 @@ char ccode_channels[200];
 int index_for_channel_list = 0;
 module_param_string(ccode_channels, ccode_channels, 200, 0600);
 
-static void rwnx_get_countrycode_channels(struct wiphy *wiphy,
+void rwnx_get_countrycode_channels(struct wiphy *wiphy,
 		struct ieee80211_regdomain *regdomain){
 	enum nl80211_band band;
 	struct ieee80211_supported_band *sband;
@@ -363,9 +363,6 @@ struct ieee80211_regdomain *getRegdomainFromRwnxDB(struct wiphy *wiphy,
 			return reg_regdb[idx];
 		}
 		idx++;
-		if(idx == reg_regdb_size){
-			break;
-		}
 	}
 
 	AICWFDBG(LOGERROR, "%s(): Error, wrong country = %s\n",
@@ -1193,6 +1190,11 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
                         IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_IN_2G;
         he_cap->ppe_thres[0] |= 0x10;
     }
+    if (rwnx_hw->mod_params->use_80) {
+        he_cap->ppe_thres[0] |= 0x20;
+        he_cap->ppe_thres[2] |= 0xc0;
+        he_cap->ppe_thres[3] |= 0x07;
+    }
     //if (rwnx_hw->mod_params->use_80)
     {
         he_cap->he_cap_elem.phy_cap_info[0] |=
@@ -1318,6 +1320,11 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
                         IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_IN_2G;
         he_cap->ppe_thres[0] |= 0x10;
     }
+    if (rwnx_hw->mod_params->use_80) {
+        he_cap->ppe_thres[0] |= 0x20;
+        he_cap->ppe_thres[2] |= 0xc0;
+        he_cap->ppe_thres[3] |= 0x07;
+    }
     //if (rwnx_hw->mod_params->use_80)
     {
         he_cap->he_cap_elem.phy_cap_info[0] |=
@@ -1382,7 +1389,11 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
     he_cap->he_cap_elem.phy_cap_info[9] |= IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_COMP_SIGB |
                                            IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB;
     #endif
-    mcs_map = rwnx_hw->mod_params->he_mcs_map;
+	if (rwnx_hw->usbdev->chipid == PRODUCT_ID_AIC8801 || rwnx_hw->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
+        rwnx_hw->usbdev->chipid == PRODUCT_ID_AIC8800DW)
+        mcs_map = min_t(int, rwnx_hw->mod_params->he_mcs_map, IEEE80211_HE_MCS_SUPPORT_0_9);
+	else
+		mcs_map = rwnx_hw->mod_params->he_mcs_map;
     //mcs_map = min_t(int, rwnx_hw->mod_params->he_mcs_map, IEEE80211_HE_MCS_SUPPORT_0_9);
     memset(&he_cap->he_mcs_nss_supp, 0, sizeof(he_cap->he_mcs_nss_supp));
     for (i = 0; i < nss; i++) {
@@ -1423,6 +1434,11 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 	        he_cap->he_cap_elem.phy_cap_info[0] |=
 	                        IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_IN_2G;
 	        he_cap->ppe_thres[0] |= 0x10;
+	    }
+	    if (rwnx_hw->mod_params->use_80) {
+		he_cap->ppe_thres[0] |= 0x20;
+		he_cap->ppe_thres[2] |= 0xc0;
+		he_cap->ppe_thres[3] |= 0x07;
 	    }
 	    //if (rwnx_hw->mod_params->use_80)
 	    {
@@ -1487,7 +1503,11 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 	    he_cap->he_cap_elem.phy_cap_info[9] |= IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_COMP_SIGB |
 	                                           IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB;
 	    #endif
-	    mcs_map = rwnx_hw->mod_params->he_mcs_map;
+		if (rwnx_hw->usbdev->chipid == PRODUCT_ID_AIC8801 || rwnx_hw->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
+			rwnx_hw->usbdev->chipid == PRODUCT_ID_AIC8800DW)
+			mcs_map = min_t(int, rwnx_hw->mod_params->he_mcs_map, IEEE80211_HE_MCS_SUPPORT_0_9);
+		else
+			mcs_map = rwnx_hw->mod_params->he_mcs_map;
 	    //mcs_map = min_t(int, rwnx_hw->mod_params->he_mcs_map, IEEE80211_HE_MCS_SUPPORT_0_9);
 	    memset(&he_cap->he_mcs_nss_supp, 0, sizeof(he_cap->he_mcs_nss_supp));
 	    for (i = 0; i < nss; i++) {

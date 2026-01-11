@@ -42,9 +42,7 @@
 #endif
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(5, 15, 60)
-#ifndef IEEE80211_MAX_AMPDU_BUF
 #define IEEE80211_MAX_AMPDU_BUF IEEE80211_MAX_AMPDU_BUF_HE
-#endif
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
@@ -246,11 +244,9 @@ enum ieee80211_radiotap_he_mu_bits {
 #define REGULATORY_IGNORE_STALE_KICKOFF 0
 #else
 #define STA_TDLS_INITIATOR(sta) sta->tdls_initiator
-
 #ifndef REGULATORY_IGNORE_STALE_KICKOFF
 #define REGULATORY_IGNORE_STALE_KICKOFF 0
 #endif
-
 #endif
 
 

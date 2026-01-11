@@ -15,13 +15,6 @@
 #include "lmac_msg.h"
 #include "aicwf_debug.h"
 
-#if 0
-#ifdef ANDROID_PLATFORM 
-#define HIGH_KERNEL_VERSION KERNEL_VERSION(5, 15, 41)
-#else
-#define HIGH_KERNEL_VERSION KERNEL_VERSION(6, 0, 0)
-#endif
-#endif
 
 #if 0
 #ifdef CONFIG_RWNX_DBG
@@ -138,6 +131,6 @@ struct rwnx_ipc_rxbuf_elems {
     struct sk_buff *skb[RWNX_RXBUFF_MAX];
     int idx;
 };
-int rwnx_init_aic(struct rwnx_hw *rwnx_hw);
+
 #endif /* CONFIG_RWNX_FULLMAC */
 #endif /* _RWNX_IPC_UTILS_H_ */
