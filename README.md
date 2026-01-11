@@ -1,3 +1,6 @@
+# aic8800-dkms
+Support deepin23 & deepin25
+
 ## Dependencies 
  - dkms
 
